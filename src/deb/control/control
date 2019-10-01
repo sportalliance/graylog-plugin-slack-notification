@@ -1,0 +1,8 @@
+Package: [[name]]
+Version: [[version]]
+Architecture: all
+Maintainer: Sport Alliance GmbH <sascha.boeing@sportalliance.com>
+Section: web
+Priority: optional
+Depends: graylog-server | graylog-radio
+Description: Allows to send notifications to Slack
