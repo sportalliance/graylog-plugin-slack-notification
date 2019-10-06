@@ -7,11 +7,11 @@ import org.graylog2.plugin.PluginModule;
  */
 public class SlackNotificationModule extends PluginModule {
 
-    @Override
-    protected void configure() {
-        addNotificationType(SlackEventNotificationConfig.TYPE_NAME,
-                SlackEventNotificationConfig.class,
-                SlackEventNotification.class,
-                SlackEventNotification.Factory.class);
-    }
+	@Override
+	protected void configure() {
+		addNotificationType(SlackEventNotificationConfig.TYPE_NAME,
+				SlackEventNotificationConfig.class,
+				SlackEventNotification.class,
+				SlackEventNotification.Factory.class);
+	}
 }

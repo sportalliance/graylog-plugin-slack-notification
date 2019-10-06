@@ -8,13 +8,13 @@ import java.util.Collection;
 import java.util.Collections;
 
 public class SlackNotificationPlugin implements Plugin {
-    @Override
-    public PluginMetaData metadata() {
-        return new SlackNotificationMetaData();
-    }
+	@Override
+	public PluginMetaData metadata() {
+		return new SlackNotificationMetaData();
+	}
 
-    @Override
-    public Collection<PluginModule> modules () {
-        return Collections.<PluginModule>singletonList(new SlackNotificationModule());
-    }
+	@Override
+	public Collection<PluginModule> modules () {
+		return Collections.<PluginModule>singletonList(new SlackNotificationModule());
+	}
 }

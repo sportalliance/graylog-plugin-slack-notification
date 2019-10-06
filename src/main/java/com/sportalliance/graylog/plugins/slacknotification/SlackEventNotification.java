@@ -47,242 +47,236 @@ import org.slf4j.LoggerFactory;
 import com.floreysoft.jmte.Engine;
 
 public class SlackEventNotification implements EventNotification {
-    public interface Factory extends EventNotification.Factory {
-        @Override
+	public interface Factory extends EventNotification.Factory {
+		@Override
 		SlackEventNotification create();
-    }
+	}
 
-    private static final Logger LOG = LoggerFactory.getLogger(SlackEventNotification.class);
+	private static final Logger LOG = LoggerFactory.getLogger(SlackEventNotification.class);
 
-    private final EventNotificationService notificationCallbackService;
-    private final StreamService streamService;
-    private final Engine templateEngine;
-    private final NotificationService notificationService;
-    private final NodeId nodeId;
+	private final EventNotificationService notificationCallbackService;
+	private final StreamService streamService;
+	private final Engine templateEngine;
+	private final NotificationService notificationService;
+	private final NodeId nodeId;
 
-    @Inject
-    public SlackEventNotification(EventNotificationService notificationCallbackService,
-                                  StreamService streamService,
-                                  Engine templateEngine,
+	@Inject
+	public SlackEventNotification(EventNotificationService notificationCallbackService,
+								  StreamService streamService,
+								  Engine templateEngine,
 								  NotificationService notificationService,
 								  NodeId nodeId) {
-        this.notificationCallbackService = notificationCallbackService;
-        this.streamService = streamService;
-        this.templateEngine = templateEngine;
-        this.notificationService = notificationService;
-        this.nodeId = nodeId;
-    }
+		this.notificationCallbackService = notificationCallbackService;
+		this.streamService = streamService;
+		this.templateEngine = templateEngine;
+		this.notificationService = notificationService;
+		this.nodeId = nodeId;
+	}
 
-    @Override
-    public void execute(EventNotificationContext ctx) throws PermanentEventNotificationException {
-        final SlackEventNotificationConfig config = (SlackEventNotificationConfig) ctx.notificationConfig();
-        LOG.warn("Event: " + ctx.event());
-        LOG.warn("EventDefinition: " + ctx.eventDefinition());
-        LOG.warn("JobTrigger: " + ctx.jobTrigger());
-        LOG.warn("NotificationConfig: " + ctx.notificationConfig());
-        SlackClient slackClient = new SlackClient(config);
+	@Override
+	public void execute(EventNotificationContext ctx) throws PermanentEventNotificationException {
+		final SlackEventNotificationConfig config = (SlackEventNotificationConfig) ctx.notificationConfig();
+		SlackClient slackClient = new SlackClient(config);
 
-        try {
-            SlackMessage slackMessage = createSlackMessage(ctx, config);
-            LOG.warn("Message: " + slackMessage.getJsonString());
+		try {
+			SlackMessage slackMessage = createSlackMessage(ctx, config);
+			slackClient.send(slackMessage);
+		} catch (Exception e) {
+			String exceptionDetail = e.toString();
+			if (e.getCause() != null) {
+				exceptionDetail += " (" + e.getCause() + ")";
+			}
 
-            slackClient.send(slackMessage);
-        } catch (Exception e) {
-            String exceptionDetail = e.toString();
-            if (e.getCause() != null) {
-                exceptionDetail += " (" + e.getCause() + ")";
-            }
+			final Notification systemNotification = notificationService.buildNow()
+					.addNode(nodeId.toString())
+					.addType(Notification.Type.GENERIC)
+					.addSeverity(Notification.Severity.NORMAL)
+					.addDetail("exception", exceptionDetail);
+			notificationService.publishIfFirst(systemNotification);
 
-            final Notification systemNotification = notificationService.buildNow()
-                    .addNode(nodeId.toString())
-                    .addType(Notification.Type.GENERIC)
-                    .addSeverity(Notification.Severity.NORMAL)
-                    .addDetail("exception", exceptionDetail);
-            notificationService.publishIfFirst(systemNotification);
+			throw new PermanentEventNotificationException("Slack notification is triggered, but sending failed. " + e.getMessage());
+		}
+	}
 
-            throw new PermanentEventNotificationException("Slack notification is triggered, but sending failed. " + e.getMessage());
-        }
-    }
+	private SlackMessage createSlackMessage(EventNotificationContext ctx, SlackEventNotificationConfig config) {
+		//Note: Link names if notify channel or else the channel tag will be plain text.
+		boolean linkNames = config.linkNames() || config.notifyChannel();
+		String message = buildDefaultMessage(ctx, config);
 
-    private String buildDefaultMessage(EventNotificationContext ctx, SlackEventNotificationConfig config) {
-        String title = buildMessageTitle(ctx, config);
+		String customMessage = null;
+		String template = config.customMessage();
+		boolean hasTemplate = !isNullOrEmpty(template);
+		if (hasTemplate) {
+			customMessage = buildCustomMessage(ctx, config, template);
+		}
 
-        // Build custom message
-        String audience = config.notifyChannel() ? "@channel " : "";
-        String description = ctx.eventDefinition().map(EventDefinitionDto::description).orElse("");
-        return String.format("%s*Alert %s* triggered:\n> %s \n", audience, title, description);
-    }
+		List<String> backlogItemMessages = Collections.emptyList();
+		String backlogItemTemplate = config.backlogItemMessage();
+		boolean hasBacklogItemTemplate = !isNullOrEmpty(backlogItemTemplate);
+		if(hasBacklogItemTemplate) {
+			backlogItemMessages = buildBacklogItemMessages(ctx, config, backlogItemTemplate);
+		}
 
-    private String buildMessageTitle(EventNotificationContext ctx, SlackEventNotificationConfig config) {
-        String graylogUrl = config.graylogUrl();
-        String eventDefinitionName = ctx.eventDefinition().map(EventDefinitionDto::title).orElse("Unnamed");
-        if(!isNullOrEmpty(graylogUrl)) {
-            return "<" + graylogUrl + "|" + eventDefinitionName + ">";
-        } else {
-            return "_" + eventDefinitionName + "_";
-        }
-    }
+		return new SlackMessage(
+				config.color(),
+				config.iconEmoji(),
+				config.iconUrl(),
+				config.userName(),
+				config.channel(),
+				linkNames,
+				message,
+				customMessage,
+				backlogItemMessages);
+	}
 
-    private String buildCustomMessage(EventNotificationContext ctx, SlackEventNotificationConfig config, String template) {
-        List<Message> backlog = getAlarmBacklog(ctx, config);
-        Map<String, Object> model = getCustomMessageModel(ctx, config, backlog);
-        try {
-            return templateEngine.transform(template, model);
-        } catch (Exception e) {
-            LOG.error("Exception during templating", e);
-            return e.toString();
-        }
-    }
+	private String buildDefaultMessage(EventNotificationContext ctx, SlackEventNotificationConfig config) {
+		String title = buildMessageTitle(ctx, config);
 
-    private List<String> buildBacklogItemMessages(EventNotificationContext ctx, SlackEventNotificationConfig config, String template) {
-        return getAlarmBacklog(ctx, config).stream()
-                .map(backlogItem -> {
-                    Map<String, Object> model = getBacklogItemModel(ctx, config, backlogItem);
-                    try {
-                        return templateEngine.transform(template, model);
-                    } catch (Exception e) {
-                        LOG.error("Exception during templating", e);
-                        return e.toString();
-                    }
-                }).collect(Collectors.toList());
-    }
+		// Build custom message
+		String audience = config.notifyChannel() ? "@channel " : "";
+		String description = ctx.eventDefinition().map(EventDefinitionDto::description).orElse("");
+		return String.format("%s*Alert %s* triggered:\n> %s \n", audience, title, description);
+	}
 
-    private List<Message> getAlarmBacklog(EventNotificationContext ctx, SlackEventNotificationConfig config) {
-        final List<MessageSummary> matchingMessages = notificationCallbackService.getBacklogForEvent(ctx);
+	private String buildMessageTitle(EventNotificationContext ctx, SlackEventNotificationConfig config) {
+		String graylogUrl = config.graylogUrl();
+		String eventDefinitionName = ctx.eventDefinition().map(EventDefinitionDto::title).orElse("Unnamed");
+		if(!isNullOrEmpty(graylogUrl)) {
+			return "<" + graylogUrl + "|" + eventDefinitionName + ">";
+		} else {
+			return "_" + eventDefinitionName + "_";
+		}
+	}
 
-        return matchingMessages.stream()
-                .map(MessageSummary::getRawMessage)
-                .collect(Collectors.toList());
-    }
+	private String buildCustomMessage(EventNotificationContext ctx, SlackEventNotificationConfig config, String template) {
+		List<Message> backlog = getAlarmBacklog(ctx, config);
+		Map<String, Object> model = getCustomMessageModel(ctx, config, backlog);
+		try {
+			return templateEngine.transform(template, model);
+		} catch (Exception e) {
+			LOG.error("Exception during templating", e);
+			return e.toString();
+		}
+	}
 
-    private Map<String, Object> getCustomMessageModel(EventNotificationContext ctx, SlackEventNotificationConfig config, List<Message> backlog) {
-        Map<String, Object> model = new HashMap<>();
-        EventDto eventDto = ctx.event();
-        if(eventDto.timerangeStart().isPresent()) {
-            model.put("event_timerange_start", eventDto.timerangeStart().get());
-            model.put("event_timerange_end", eventDto.timerangeEnd().get());
-        }
+	private List<String> buildBacklogItemMessages(EventNotificationContext ctx, SlackEventNotificationConfig config, String template) {
+		return getAlarmBacklog(ctx, config).stream()
+				.map(backlogItem -> {
+					Map<String, Object> model = getBacklogItemModel(ctx, config, backlogItem);
+					try {
+						return templateEngine.transform(template, model);
+					} catch (Exception e) {
+						LOG.error("Exception during templating", e);
+						return e.toString();
+					}
+				}).collect(Collectors.toList());
+	}
 
-        List<StreamDto> streams = streamService.loadByIds(eventDto.sourceStreams())
-                .stream()
-                .map(stream -> buildStreamWithUrl(stream, ctx, config))
-                .collect(Collectors.toList());
-        model.put("streams", streams);
-        model.put("message", eventDto.message());
-        model.put("priority", eventDto.priority());
-        model.put("alert", eventDto.alert());
+	private List<Message> getAlarmBacklog(EventNotificationContext ctx, SlackEventNotificationConfig config) {
+		final List<MessageSummary> matchingMessages = notificationCallbackService.getBacklogForEvent(ctx);
 
-        model.put("backlog", backlog);
-        model.put("backlog_size", backlog.size());
+		return matchingMessages.stream()
+				.map(MessageSummary::getRawMessage)
+				.collect(Collectors.toList());
+	}
 
-        if(!isNullOrEmpty(config.graylogUrl())) {
-            model.put("graylog_url", config.graylogUrl());
-        }
+	private Map<String, Object> getCustomMessageModel(EventNotificationContext ctx, SlackEventNotificationConfig config, List<Message> backlog) {
+		Map<String, Object> model = new HashMap<>();
+		EventDto eventDto = ctx.event();
+		if(eventDto.timerangeStart().isPresent()) {
+			model.put("event_timerange_start", eventDto.timerangeStart().get());
+			model.put("event_timerange_end", eventDto.timerangeEnd().get());
+		}
 
-        return model;
-    }
+		List<StreamDto> streams = streamService.loadByIds(eventDto.sourceStreams())
+				.stream()
+				.map(stream -> buildStreamWithUrl(stream, ctx, config))
+				.collect(Collectors.toList());
+		model.put("streams", streams);
+		model.put("message", eventDto.message());
+		model.put("priority", eventDto.priority());
+		model.put("alert", eventDto.alert());
 
-    private Map<String, Object> getBacklogItemModel(EventNotificationContext ctx, SlackEventNotificationConfig config, Message backlogItem) {
-        Map<String, Object> model = new HashMap<>();
-        EventDto eventDto = ctx.event();
-        if(eventDto.timerangeStart().isPresent()) {
-            model.put("event_timerange_start", eventDto.timerangeStart().get());
-            model.put("event_timerange_end", eventDto.timerangeEnd().get());
-        }
-        model.put("streams", eventDto.sourceStreams());
-        model.put("message", eventDto.message());
-        model.put("priority", eventDto.priority());
-        model.put("alert", eventDto.alert());
+		model.put("backlog", backlog);
+		model.put("backlog_size", backlog.size());
 
-        model.put("backlog_item", backlogItem);
+		if(!isNullOrEmpty(config.graylogUrl())) {
+			model.put("graylog_url", config.graylogUrl());
+		}
 
-        if(!isNullOrEmpty(config.graylogUrl())) {
-            model.put("graylog_url", config.graylogUrl());
-        }
+		return model;
+	}
 
-        return model;
-    }
+	private Map<String, Object> getBacklogItemModel(EventNotificationContext ctx, SlackEventNotificationConfig config, Message backlogItem) {
+		Map<String, Object> model = new HashMap<>();
+		EventDto eventDto = ctx.event();
+		if(eventDto.timerangeStart().isPresent()) {
+			model.put("event_timerange_start", eventDto.timerangeStart().get());
+			model.put("event_timerange_end", eventDto.timerangeEnd().get());
+		}
+		model.put("streams", eventDto.sourceStreams());
+		model.put("message", eventDto.message());
+		model.put("priority", eventDto.priority());
+		model.put("alert", eventDto.alert());
 
-    private StreamDto buildStreamWithUrl(Stream stream, EventNotificationContext ctx, SlackEventNotificationConfig config) {
-        String graylogUrl = config.graylogUrl();
-        String streamUrl = null;
-        if(!isNullOrEmpty(graylogUrl)) {
-            streamUrl = StringUtils.appendIfMissing(graylogUrl, "/") + "streams/" + stream.getId() + "/search";
+		model.put("backlog_item", backlogItem);
 
-            if(ctx.eventDefinition().isPresent()) {
-                EventDefinitionDto eventDefinitionDto = ctx.eventDefinition().get();
-                if(eventDefinitionDto.config() instanceof AggregationEventProcessorConfig) {
-                    String query = ((AggregationEventProcessorConfig) eventDefinitionDto.config()).query();
-                    streamUrl += "?q=" + query;
-                }
-            }
-        }
+		if(!isNullOrEmpty(config.graylogUrl())) {
+			model.put("graylog_url", config.graylogUrl());
+		}
 
-        return new StreamDto(
-                stream.getId(),
-                stream.getTitle(),
-                stream.getDescription(),
-                streamUrl);
-    }
+		return model;
+	}
 
-    private SlackMessage createSlackMessage(EventNotificationContext ctx, SlackEventNotificationConfig config) {
-        //Note: Link names if notify channel or else the channel tag will be plain text.
-        boolean linkNames = config.linkNames() || config.notifyChannel();
-        String message = buildDefaultMessage(ctx, config);
+	private StreamDto buildStreamWithUrl(Stream stream, EventNotificationContext ctx, SlackEventNotificationConfig config) {
+		String graylogUrl = config.graylogUrl();
+		String streamUrl = null;
+		if(!isNullOrEmpty(graylogUrl)) {
+			streamUrl = StringUtils.appendIfMissing(graylogUrl, "/") + "streams/" + stream.getId() + "/search";
 
-        String customMessage = null;
-        String template = config.customMessage();
-        boolean hasTemplate = !isNullOrEmpty(template);
-        if (hasTemplate) {
-            customMessage = buildCustomMessage(ctx, config, template);
-        }
+			if(ctx.eventDefinition().isPresent()) {
+				EventDefinitionDto eventDefinitionDto = ctx.eventDefinition().get();
+				if(eventDefinitionDto.config() instanceof AggregationEventProcessorConfig) {
+					String query = ((AggregationEventProcessorConfig) eventDefinitionDto.config()).query();
+					streamUrl += "?q=" + query;
+				}
+			}
+		}
 
-        List<String> backlogItemMessages = Collections.emptyList();
-        String backlogItemTemplate = config.backlogItemMessage();
-        boolean hasBacklogItemTemplate = !isNullOrEmpty(backlogItemTemplate);
-        if(hasBacklogItemTemplate) {
-            backlogItemMessages = buildBacklogItemMessages(ctx, config, backlogItemTemplate);
-        }
+		return new StreamDto(
+				stream.getId(),
+				stream.getTitle(),
+				stream.getDescription(),
+				streamUrl);
+	}
 
-        return new SlackMessage(
-                config.color(),
-                config.iconEmoji(),
-                config.iconUrl(),
-                config.userName(),
-                config.channel(),
-                linkNames,
-                message,
-                customMessage,
-                backlogItemMessages);
-    }
+	private static class StreamDto {
+		private final String id;
+		private final String title;
+		private final String description;
+		private final String url;
 
-    protected static class StreamDto {
-        private final String id;
-        private final String title;
-        private final String description;
-        private final String url;
+		private StreamDto(String id, String title, String description, String url) {
+			this.id = id;
+			this.title = title;
+			this.description = description;
+			this.url = url;
+		}
 
-        protected StreamDto(String id, String title, String description, String url) {
-            this.id = id;
-            this.title = title;
-            this.description = description;
-            this.url = url;
-        }
+		public String getId() {
+			return id;
+		}
 
-        public String getId() {
-            return id;
-        }
+		public String getTitle() {
+			return title;
+		}
 
-        public String getTitle() {
-            return title;
-        }
+		public String getDescription() {
+			return description;
+		}
 
-        public String getDescription() {
-            return description;
-        }
-
-        public String getUrl() {
-            return url;
-        }
-    }
+		public String getUrl() {
+			return url;
+		}
+	}
 }
