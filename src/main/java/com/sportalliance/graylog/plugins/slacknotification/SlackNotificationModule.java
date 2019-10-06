@@ -2,6 +2,9 @@ package com.sportalliance.graylog.plugins.slacknotification;
 
 import org.graylog2.plugin.PluginModule;
 
+import com.sportalliance.graylog.plugins.slacknotification.config.SlackEventNotification;
+import com.sportalliance.graylog.plugins.slacknotification.config.SlackEventNotificationConfig;
+
 /**
  * Extend the PluginModule abstract class here to add you plugin to the system.
  */

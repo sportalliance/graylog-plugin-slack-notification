@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Graylog.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.sportalliance.graylog.plugins.slacknotification;
+package com.sportalliance.graylog.plugins.slacknotification.config;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
@@ -45,6 +45,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.floreysoft.jmte.Engine;
+import com.sportalliance.graylog.plugins.slacknotification.SlackClient;
+import com.sportalliance.graylog.plugins.slacknotification.SlackMessage;
 
 public class SlackEventNotification implements EventNotification {
 	public interface Factory extends EventNotification.Factory {

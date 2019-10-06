@@ -1,4 +1,4 @@
-package com.sportalliance.graylog.plugins.slacknotification;
+package com.sportalliance.graylog.plugins.slacknotification.config;
 
 import javax.validation.constraints.NotBlank;
 
