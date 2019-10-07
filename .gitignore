@@ -10,5 +10,4 @@ dependency-reduced-pom.xml
 node_modules
 node
 build
-build.config.js
 yarn.lock
