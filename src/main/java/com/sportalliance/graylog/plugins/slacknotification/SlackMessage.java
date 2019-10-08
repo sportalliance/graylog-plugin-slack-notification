@@ -52,11 +52,10 @@ public class SlackMessage {
 
 	public String getJsonString() {
 		// See https://api.slack.com/methods/chat.postMessage for valid parameters
-		final Map<String, Object> params = new HashMap<String, Object>() {{
-			put("channel", channel);
-			put("text", message);
-			put("link_names", linkNames);
-		}};
+		final Map<String, Object> params = new HashMap<>();
+		params.put("channel", channel);
+		params.put("text", message);
+		params.put("link_names", linkNames);
 
 		if (!isNullOrEmpty(userName)) {
 			params.put("username", userName);

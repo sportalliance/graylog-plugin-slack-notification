@@ -11,6 +11,7 @@ import java.net.Proxy;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -57,7 +58,7 @@ public class SlackClient {
 			throw new SlackClientException("Could not open connection to Slack API", e);
 		}
 
-		try (final Writer writer = new OutputStreamWriter(conn.getOutputStream())) {
+		try (final Writer writer = new OutputStreamWriter(conn.getOutputStream(), StandardCharsets.UTF_8)) {
 			String json = message.getJsonString();
 			writer.write(json);
 			writer.flush();
@@ -92,7 +93,7 @@ public class SlackClient {
 	}
 
 
-	public class SlackClientException extends Exception {
+	public static class SlackClientException extends Exception {
 
 		public SlackClientException(String msg) {
 			super(msg);

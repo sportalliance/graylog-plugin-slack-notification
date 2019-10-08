@@ -76,6 +76,7 @@ public abstract class SlackEventNotificationConfig implements EventNotificationC
 	@JsonProperty(FIELD_PROXY)
 	public abstract String proxy();
 
+	@Override
 	@JsonIgnore
 	public JobTriggerData toJobTriggerData(EventDto dto) {
 		return EventNotificationExecutionJob.Data.builder().eventDto(dto).build();
@@ -85,6 +86,7 @@ public abstract class SlackEventNotificationConfig implements EventNotificationC
 		return SlackEventNotificationConfig.Builder.create();
 	}
 
+	@Override
 	@JsonIgnore
 	public ValidationResult validate() {
 		return new ValidationResult();
