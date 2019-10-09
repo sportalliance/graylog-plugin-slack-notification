@@ -88,7 +88,7 @@ class SlackNotificationForm extends React.Component {
                label="Custom Message (optional)"
                type="textarea"
                bsStyle={validation.errors.custom_message ? 'error' : null}
-               help={lodash.get(validation, 'errors.custom_message[0]', 'Custom message to be appended below the alert title. The following properties are available for template building: "streams", "message", "priority", "alert", "event_timerange_start", "event_timerange_end", "backlog", "backlog_size", "graylog_url". See http://docs.graylog.org/en/2.3/pages/streams/alerts.html#email-alert-notification for more details.')}
+               help={lodash.get(validation, 'errors.custom_message[0]', 'Custom message to be appended below the alert title. The following properties are available for template building: "streams", "message", "priority", "alert", "event_timerange_start", "event_timerange_end", "backlog", "backlog_size", "graylog_url". See http://docs.graylog.org/en/3.1/pages/streams/alerts.html for more details.')}
                value={config.custom_message || ''}
                onChange={this.handleChange} />
         <Input id="notification-backlogItemMessage"
@@ -96,7 +96,7 @@ class SlackNotificationForm extends React.Component {
                label="Backlog Item Message (optional)"
                type="textarea"
                bsStyle={validation.errors.backlog_item_message ? 'error' : null}
-               help={lodash.get(validation, 'errors.backlog_item_message[0]', 'Template that is added as attachment to the slack message for each backlog item. The following properties are available for template building: "streams", "message", "priority", "alert", "event_timerange_start", "event_timerange_end", "backlog_item", "graylog_url". See http://docs.graylog.org/en/2.3/pages/streams/alerts.html#email-alert-notification for more details. Slack recommends to have no more than 20 attachments and throws an error when attempting to include more than 100. So don\'t use a too high backlog items number. Also consider that other parts of the slack notification may use attachments!')}
+               help={lodash.get(validation, 'errors.backlog_item_message[0]', 'Template that is added as attachment to the slack message for each backlog item. The following properties are available for template building: "streams", "message", "priority", "alert", "event_timerange_start", "event_timerange_end", "backlog_item", "graylog_url". See http://docs.graylog.org/en/3.1/pages/streams/alerts.html for more details. Slack recommends to have no more than 20 attachments and throws an error when attempting to include more than 100. So don\'t use a too high backlog items number. Also consider that other parts of the slack notification may use attachments!')}
                value={config.backlog_item_message || ''}
                onChange={this.handleChange} />
         <Input id="notification-userName"
