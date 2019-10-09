@@ -1,6 +1,6 @@
 # Slack Notification Plugin for Graylog
 
-[![Build Status](https://travis-ci.org/sportalliance/graylog-plugin-slack-notification.svg?branch=master)](https://travis-ci.org/sportalliance/graylog-plugin-slack-notification)
+[![Build Status](https://travis-ci.com/sportalliance/graylog-plugin-slack-notification.svg?branch=master)](https://travis-ci.com/sportalliance/graylog-plugin-slack-notification)
 
 **WIP**
 
