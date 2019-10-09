@@ -14,7 +14,7 @@
 
     <groupId>com.sportalliance</groupId>
     <artifactId>graylog-plugin-slack-notification</artifactId>
-    <version>0.9.3-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <name>${project.artifactId}</name>
@@ -32,7 +32,7 @@
         <connection>scm:git:git@github.com:sportalliance/graylog-plugin-slack-notification.git</connection>
         <developerConnection>scm:git:git@github.com:sportalliance/graylog-plugin-slack-notification.git</developerConnection>
         <url>https://github.com/sportalliance/graylog-plugin-slack-notification</url>
-        <tag>HEAD</tag>
+        <tag>1.0.0</tag>
     </scm>
 
     <properties>
