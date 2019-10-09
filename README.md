@@ -2,11 +2,18 @@
 
 [![Build Status](https://travis-ci.com/sportalliance/graylog-plugin-slack-notification.svg?branch=master)](https://travis-ci.com/sportalliance/graylog-plugin-slack-notification)
 
-**WIP**
-
 Plugin for Graylog to be able to send notifications to Slack
 
 **Required Graylog version:** 3.1 and later
+
+Usage
+-----
+After installation select `Slack Notification` as notification type when creating a new
+notification and fill out all required fields.
+
+![](https://github.com/sportalliance/graylog-plugin-slack-notification/blob/master/images/page_1.png)
+
+![](https://github.com/sportalliance/graylog-plugin-slack-notification/blob/master/images/page_2.png)
 
 Installation
 ------------
