@@ -31,7 +31,7 @@ class SlackNotificationForm extends React.Component {
             + '${end}',
     backlog_item_message: '${backlog_item}',
     user_name: 'Graylog',
-    notify_channel: true,
+    notify_channel: false,
     link_names: false,
     icon_url: '',
     icon_emoji: '',
