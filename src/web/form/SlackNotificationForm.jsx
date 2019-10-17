@@ -113,7 +113,7 @@ class SlackNotificationForm extends React.Component {
                type="checkbox"
                bsStyle={validation.errors.notify_channel ? 'error' : null}
                help={lodash.get(validation, 'errors.notify_channel[0]', 'Notify all users in channel by adding @channel to the message')}
-               value={config.notify_channel || ''}
+               checked={config.notify_channel || ''}
                onChange={this.handleChange} />
         <Input id="notification-linkNames"
                name="link_names"
@@ -121,7 +121,7 @@ class SlackNotificationForm extends React.Component {
                type="checkbox"
                bsStyle={validation.errors.link_names ? 'error' : null}
                help={lodash.get(validation, 'errors.link_names[0]', 'Find and link channel names and user names')}
-               value={config.link_names || ''}
+               checked={config.link_names || ''}
                onChange={this.handleChange} />
         <Input id="notification-iconUrl"
                name="icon_url"
