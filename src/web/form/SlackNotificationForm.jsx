@@ -17,19 +17,19 @@ class SlackNotificationForm extends React.Component {
     webhook_url: '',
     channel: '#channel',
     custom_message: ''
-            + 'Message: ${message}\n'
-            + '${if event_timerange_start}Timerange: ${event_timerange_start} to ${event_timerange_end}${end}\n'
+            + 'Message: ${event.message}\n'
+            + '${if event.timerange_start}Timerange: ${event.timerange_start} to ${event.timerange_end}${end}\n'
             + 'Streams: ${streams}\n'
             + '${if graylog_url}Graylog URL: ${graylog_url}\n${end}'
             + '\n'
             + '##########\n'
             + '\n'
             + '${if backlog}Last messages accounting for this alert:\n'
-            + '${foreach backlog message}${message}\n'
+            + '${foreach backlog item}${item.message}\n'
             + '\n'
             + '${end}${else}<No backlog>\n'
             + '${end}',
-    backlog_item_message: '${backlog_item}',
+    backlog_item_message: '${backlog_item.message}',
     user_name: 'Graylog',
     notify_channel: false,
     link_names: false,
@@ -88,7 +88,7 @@ class SlackNotificationForm extends React.Component {
                label="Custom Message (optional)"
                type="textarea"
                bsStyle={validation.errors.custom_message ? 'error' : null}
-               help={lodash.get(validation, 'errors.custom_message[0]', 'Custom message to be appended below the alert title. The following properties are available for template building: "streams", "message", "priority", "alert", "event_timerange_start", "event_timerange_end", "backlog", "backlog_size", "graylog_url". See http://docs.graylog.org/en/3.1/pages/streams/alerts.html for more details.')}
+               help={lodash.get(validation, 'errors.custom_message[0]', 'Custom message to be appended below the alert title. The following properties are available for template building: "event", "backlog", "backlog_size", "streams", "graylog_url". See http://docs.graylog.org/en/3.1/pages/streams/alerts.html for more details.')}
                value={config.custom_message || ''}
                onChange={this.handleChange} />
         <Input id="notification-backlogItemMessage"
@@ -96,7 +96,7 @@ class SlackNotificationForm extends React.Component {
                label="Backlog Item Message (optional)"
                type="textarea"
                bsStyle={validation.errors.backlog_item_message ? 'error' : null}
-               help={lodash.get(validation, 'errors.backlog_item_message[0]', 'Template that is added as attachment to the slack message for each backlog item. The following properties are available for template building: "streams", "message", "priority", "alert", "event_timerange_start", "event_timerange_end", "backlog_item", "graylog_url". See http://docs.graylog.org/en/3.1/pages/streams/alerts.html for more details. Slack recommends to have no more than 20 attachments and throws an error when attempting to include more than 100. So don\'t use a too high backlog items number. Also consider that other parts of the slack notification may use attachments!')}
+               help={lodash.get(validation, 'errors.backlog_item_message[0]', 'Template that is added as attachment to the slack message for each backlog item. The following properties are available for template building: "event", "backlog_item", "streams", "graylog_url". See http://docs.graylog.org/en/3.1/pages/streams/alerts.html for more details. Slack recommends to have no more than 20 attachments and throws an error when attempting to include more than 100. So don\'t use a too high backlog items number. Also consider that other parts of the slack notification may use attachments!')}
                value={config.backlog_item_message || ''}
                onChange={this.handleChange} />
         <Input id="notification-userName"

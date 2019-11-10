@@ -19,24 +19,24 @@ package com.sportalliance.graylog.plugins.slacknotification.config;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
-import org.graylog.events.event.EventDto;
 import org.graylog.events.notifications.EventNotification;
 import org.graylog.events.notifications.EventNotificationContext;
 import org.graylog.events.notifications.EventNotificationService;
 import org.graylog.events.notifications.PermanentEventNotificationException;
 import org.graylog.events.processor.EventDefinitionDto;
 import org.graylog.events.processor.aggregation.AggregationEventProcessorConfig;
+import org.graylog.scheduler.JobTriggerDto;
+import org.graylog2.jackson.TypeReferences;
 import org.graylog2.notifications.Notification;
 import org.graylog2.notifications.NotificationService;
-import org.graylog2.plugin.Message;
 import org.graylog2.plugin.MessageSummary;
 import org.graylog2.plugin.streams.Stream;
 import org.graylog2.plugin.system.NodeId;
@@ -44,11 +44,18 @@ import org.graylog2.streams.StreamService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.floreysoft.jmte.Engine;
 import com.sportalliance.graylog.plugins.slacknotification.SlackClient;
 import com.sportalliance.graylog.plugins.slacknotification.SlackMessage;
+import com.sportalliance.graylog.plugins.slacknotification.config.modeldata.BacklogItemModelData;
+import com.sportalliance.graylog.plugins.slacknotification.config.modeldata.CustomMessageModelData;
+import com.sportalliance.graylog.plugins.slacknotification.config.modeldata.StreamModelData;
 
 public class SlackEventNotification implements EventNotification {
+
+	private static final String UNKNOWN_VALUE = "<unknown>";
+
 	public interface Factory extends EventNotification.Factory {
 		@Override
 		SlackEventNotification create();
@@ -60,6 +67,7 @@ public class SlackEventNotification implements EventNotification {
 	private final StreamService streamService;
 	private final Engine templateEngine;
 	private final NotificationService notificationService;
+	private final ObjectMapper objectMapper;
 	private final NodeId nodeId;
 
 	@Inject
@@ -67,11 +75,13 @@ public class SlackEventNotification implements EventNotification {
 								  StreamService streamService,
 								  Engine templateEngine,
 								  NotificationService notificationService,
+								  ObjectMapper objectMapper,
 								  NodeId nodeId) {
 		this.notificationCallbackService = notificationCallbackService;
 		this.streamService = streamService;
 		this.templateEngine = templateEngine;
 		this.notificationService = notificationService;
+		this.objectMapper = objectMapper;
 		this.nodeId = nodeId;
 	}
 
@@ -96,7 +106,7 @@ public class SlackEventNotification implements EventNotification {
 					.addDetail("exception", exceptionDetail);
 			notificationService.publishIfFirst(systemNotification);
 
-			throw new PermanentEventNotificationException("Slack notification is triggered, but sending failed. " + e.getMessage());
+			throw new PermanentEventNotificationException("Slack notification is triggered, but sending failed. " + e.getMessage(), e);
 		}
 	}
 
@@ -151,7 +161,7 @@ public class SlackEventNotification implements EventNotification {
 	}
 
 	private String buildCustomMessage(EventNotificationContext ctx, SlackEventNotificationConfig config, String template) {
-		List<Message> backlog = getAlarmBacklog(ctx, config);
+		List<MessageSummary> backlog = getAlarmBacklog(ctx);
 		Map<String, Object> model = getCustomMessageModel(ctx, config, backlog);
 		try {
 			return templateEngine.transform(template, model);
@@ -162,7 +172,7 @@ public class SlackEventNotification implements EventNotification {
 	}
 
 	private List<String> buildBacklogItemMessages(EventNotificationContext ctx, SlackEventNotificationConfig config, String template) {
-		return getAlarmBacklog(ctx, config).stream()
+		return getAlarmBacklog(ctx).stream()
 				.map(backlogItem -> {
 					Map<String, Object> model = getBacklogItemModel(ctx, config, backlogItem);
 					try {
@@ -174,63 +184,60 @@ public class SlackEventNotification implements EventNotification {
 				}).collect(Collectors.toList());
 	}
 
-	private List<Message> getAlarmBacklog(EventNotificationContext ctx, SlackEventNotificationConfig config) {
-		final List<MessageSummary> matchingMessages = notificationCallbackService.getBacklogForEvent(ctx);
-
-		return matchingMessages.stream()
-				.map(MessageSummary::getRawMessage)
-				.collect(Collectors.toList());
+	private List<MessageSummary> getAlarmBacklog(EventNotificationContext ctx) {
+		return notificationCallbackService.getBacklogForEvent(ctx);
 	}
 
-	private Map<String, Object> getCustomMessageModel(EventNotificationContext ctx, SlackEventNotificationConfig config, List<Message> backlog) {
-		Map<String, Object> model = new HashMap<>();
-		EventDto eventDto = ctx.event();
-		if(eventDto.timerangeStart().isPresent()) {
-			model.put("event_timerange_start", eventDto.timerangeStart().get());
-			model.put("event_timerange_end", eventDto.timerangeEnd().get());
-		}
+	private Map<String, Object> getCustomMessageModel(EventNotificationContext ctx, SlackEventNotificationConfig config, List<MessageSummary> backlog) {
+		Optional<EventDefinitionDto> definitionDto = ctx.eventDefinition();
 
-		List<StreamDto> streams = streamService.loadByIds(eventDto.sourceStreams())
+		List<StreamModelData> streams = streamService.loadByIds(ctx.event().sourceStreams())
 				.stream()
 				.map(stream -> buildStreamWithUrl(stream, ctx, config))
 				.collect(Collectors.toList());
-		model.put("streams", streams);
-		model.put("message", eventDto.message());
-		model.put("priority", eventDto.priority());
-		model.put("alert", eventDto.alert());
 
-		model.put("backlog", backlog);
-		model.put("backlog_size", backlog.size());
+		CustomMessageModelData modelData = CustomMessageModelData.builder()
+				.eventDefinitionId(definitionDto.map(EventDefinitionDto::id).orElse(UNKNOWN_VALUE))
+				.eventDefinitionType(definitionDto.map(d -> d.config().type()).orElse(UNKNOWN_VALUE))
+				.eventDefinitionTitle(definitionDto.map(EventDefinitionDto::title).orElse(UNKNOWN_VALUE))
+				.eventDefinitionDescription(definitionDto.map(EventDefinitionDto::description).orElse(UNKNOWN_VALUE))
+				.jobDefinitionId(ctx.jobTrigger().map(JobTriggerDto::jobDefinitionId).orElse(UNKNOWN_VALUE))
+				.jobTriggerId(ctx.jobTrigger().map(JobTriggerDto::id).orElse(UNKNOWN_VALUE))
+				.event(ctx.event())
+				.backlog(backlog)
+				.backlogSize(backlog.size())
+				.graylogUrl(isNullOrEmpty(config.graylogUrl()) ? UNKNOWN_VALUE : config.graylogUrl())
+				.streams(streams)
+				.build();
 
-		if(!isNullOrEmpty(config.graylogUrl())) {
-			model.put("graylog_url", config.graylogUrl());
-		}
-
-		return model;
+		return objectMapper.convertValue(modelData, TypeReferences.MAP_STRING_OBJECT);
 	}
 
-	private Map<String, Object> getBacklogItemModel(EventNotificationContext ctx, SlackEventNotificationConfig config, Message backlogItem) {
-		Map<String, Object> model = new HashMap<>();
-		EventDto eventDto = ctx.event();
-		if(eventDto.timerangeStart().isPresent()) {
-			model.put("event_timerange_start", eventDto.timerangeStart().get());
-			model.put("event_timerange_end", eventDto.timerangeEnd().get());
-		}
-		model.put("streams", eventDto.sourceStreams());
-		model.put("message", eventDto.message());
-		model.put("priority", eventDto.priority());
-		model.put("alert", eventDto.alert());
+	private Map<String, Object> getBacklogItemModel(EventNotificationContext ctx, SlackEventNotificationConfig config, MessageSummary backlogItem) {
+		Optional<EventDefinitionDto> definitionDto = ctx.eventDefinition();
 
-		model.put("backlog_item", backlogItem);
+		List<StreamModelData> streams = streamService.loadByIds(ctx.event().sourceStreams())
+				.stream()
+				.map(stream -> buildStreamWithUrl(stream, ctx, config))
+				.collect(Collectors.toList());
 
-		if(!isNullOrEmpty(config.graylogUrl())) {
-			model.put("graylog_url", config.graylogUrl());
-		}
+		BacklogItemModelData modelData = BacklogItemModelData.builder()
+				.eventDefinitionId(definitionDto.map(EventDefinitionDto::id).orElse(UNKNOWN_VALUE))
+				.eventDefinitionType(definitionDto.map(d -> d.config().type()).orElse(UNKNOWN_VALUE))
+				.eventDefinitionTitle(definitionDto.map(EventDefinitionDto::title).orElse(UNKNOWN_VALUE))
+				.eventDefinitionDescription(definitionDto.map(EventDefinitionDto::description).orElse(UNKNOWN_VALUE))
+				.jobDefinitionId(ctx.jobTrigger().map(JobTriggerDto::jobDefinitionId).orElse(UNKNOWN_VALUE))
+				.jobTriggerId(ctx.jobTrigger().map(JobTriggerDto::id).orElse(UNKNOWN_VALUE))
+				.event(ctx.event())
+				.backlogItem(backlogItem)
+				.graylogUrl(isNullOrEmpty(config.graylogUrl()) ? UNKNOWN_VALUE : config.graylogUrl())
+				.streams(streams)
+				.build();
 
-		return model;
+		return objectMapper.convertValue(modelData, TypeReferences.MAP_STRING_OBJECT);
 	}
 
-	private StreamDto buildStreamWithUrl(Stream stream, EventNotificationContext ctx, SlackEventNotificationConfig config) {
+	private StreamModelData buildStreamWithUrl(Stream stream, EventNotificationContext ctx, SlackEventNotificationConfig config) {
 		String graylogUrl = config.graylogUrl();
 		String streamUrl = null;
 		if(!isNullOrEmpty(graylogUrl)) {
@@ -245,40 +252,11 @@ public class SlackEventNotification implements EventNotification {
 			}
 		}
 
-		return new StreamDto(
-				stream.getId(),
-				stream.getTitle(),
-				stream.getDescription(),
-				streamUrl);
-	}
-
-	private static class StreamDto {
-		private final String id;
-		private final String title;
-		private final String description;
-		private final String url;
-
-		private StreamDto(String id, String title, String description, String url) {
-			this.id = id;
-			this.title = title;
-			this.description = description;
-			this.url = url;
-		}
-
-		public String getId() {
-			return id;
-		}
-
-		public String getTitle() {
-			return title;
-		}
-
-		public String getDescription() {
-			return description;
-		}
-
-		public String getUrl() {
-			return url;
-		}
+		return StreamModelData.builder()
+				.id(stream.getId())
+				.title(stream.getTitle())
+				.description(stream.getDescription())
+				.url(Optional.ofNullable(streamUrl).orElse(UNKNOWN_VALUE))
+				.build();
 	}
 }
