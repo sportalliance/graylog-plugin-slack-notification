@@ -4,7 +4,7 @@
 
 Plugin for Graylog to be able to send notifications to Slack
 
-**Required Graylog version:** 3.1 and later
+**Required Graylog version:** 3.1.3 and later
 
 Usage
 -----
