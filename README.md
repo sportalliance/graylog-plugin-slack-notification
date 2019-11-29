@@ -25,7 +25,9 @@ and can be configured in your `graylog.conf` file.
 
 Restart `graylog-server` and you are done.
 
-#### Templating
+Templating
+----------
+
 For the `custom message` template you can use following placeholders:
 - event_definition (optionally present)
 - event_definition_id (`<unknown>` if not present)
