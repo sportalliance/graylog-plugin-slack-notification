@@ -197,6 +197,7 @@ public class SlackEventNotification implements EventNotification {
 				.collect(Collectors.toList());
 
 		CustomMessageModelData modelData = CustomMessageModelData.builder()
+				.eventDefinition(definitionDto)
 				.eventDefinitionId(definitionDto.map(EventDefinitionDto::id).orElse(UNKNOWN_VALUE))
 				.eventDefinitionType(definitionDto.map(d -> d.config().type()).orElse(UNKNOWN_VALUE))
 				.eventDefinitionTitle(definitionDto.map(EventDefinitionDto::title).orElse(UNKNOWN_VALUE))
@@ -222,6 +223,7 @@ public class SlackEventNotification implements EventNotification {
 				.collect(Collectors.toList());
 
 		BacklogItemModelData modelData = BacklogItemModelData.builder()
+				.eventDefinition(definitionDto)
 				.eventDefinitionId(definitionDto.map(EventDefinitionDto::id).orElse(UNKNOWN_VALUE))
 				.eventDefinitionType(definitionDto.map(d -> d.config().type()).orElse(UNKNOWN_VALUE))
 				.eventDefinitionTitle(definitionDto.map(EventDefinitionDto::title).orElse(UNKNOWN_VALUE))

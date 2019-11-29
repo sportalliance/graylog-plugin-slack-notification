@@ -1,8 +1,10 @@
 package com.sportalliance.graylog.plugins.slacknotification.config.modeldata;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.graylog.events.event.EventDto;
+import org.graylog.events.processor.EventDefinitionDto;
 import org.graylog2.plugin.MessageSummary;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -10,6 +12,9 @@ import com.google.auto.value.AutoValue;
 
 @AutoValue
 public abstract class BacklogItemModelData {
+
+	@JsonProperty("event_definition")
+	public abstract Optional<EventDefinitionDto> eventDefinition();
 
 	@JsonProperty("event_definition_id")
 	public abstract String eventDefinitionId();
@@ -49,6 +54,8 @@ public abstract class BacklogItemModelData {
 
 	@AutoValue.Builder
 	public static abstract class Builder {
+		public abstract Builder eventDefinition(Optional<EventDefinitionDto> eventDefinitionDto);
+
 		public abstract Builder eventDefinitionId(String id);
 
 		public abstract Builder eventDefinitionType(String type);

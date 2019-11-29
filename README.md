@@ -25,6 +25,35 @@ and can be configured in your `graylog.conf` file.
 
 Restart `graylog-server` and you are done.
 
+#### Templating
+For the `custom message` template you can use following placeholders:
+- event_definition (optionally present)
+- event_definition_id (`<unknown>` if not present)
+- event_definition_type (`<unknown>` if not present)
+- event_definition_title (`<unknown>` if not present)
+- event_definition_description (`<unknown>` if not present)
+- job_definition_id (`<unknown>` if not present)
+- job_trigger_id (`<unknown>` if not present)
+- event
+- backlog (not present if empty)
+- backlog_size
+- graylog_url (`<unknown>` if not present)
+- streams (not present if empty)
+
+For the `backlog item message` template you can use following placeholders:
+- event_definition (optionally present)
+- event_definition_id (`<unknown>` if not present)
+- event_definition_type (`<unknown>` if not present)
+- event_definition_title (`<unknown>` if not present)
+- event_definition_description (`<unknown>` if not present)
+- job_definition_id (`<unknown>` if not present)
+- job_trigger_id (`<unknown>` if not present)
+- event
+- backlog_item
+- graylog_url (`<unknown>` if not present)
+- streams (not present if empty)
+
+
 Development
 -----------
 
