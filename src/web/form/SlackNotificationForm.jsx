@@ -152,7 +152,7 @@ class SlackNotificationForm extends React.Component {
                label="Proxy (optional)"
                type="text"
                bsStyle={validation.errors.proxy ? 'error' : null}
-               help={lodash.get(validation, 'errors.proxy[0]', 'Please insert the proxy information in the follwoing format: <ProxyAddress>:<Port>')}
+               help={lodash.get(validation, 'errors.proxy[0]', 'When a web proxy is required please insert the proxy information in the following format: http://username:password@proxy.example.com:8080 where the username:password @ credentials may be omitted when the proxy does not require authentication')}
                value={config.proxy || ''}
                onChange={this.handleChange} />
       </React.Fragment>
