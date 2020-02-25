@@ -4,9 +4,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.lang.String;
+import java.net.Authenticator;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
+import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -45,6 +48,9 @@ public class SlackClient {
 		try {
 			if (!StringUtils.isEmpty(proxyURL)) {
 				final URI proxyUri = new URI(proxyURL);
+				if (!StringUtils.isEmpty(proxyUri.getUserInfo())) {
+					Authenticator.setDefault(new ProxyAuthenticator(proxyUri.getUserInfo()));
+				}
 				InetSocketAddress sockAddress = new InetSocketAddress(proxyUri.getHost(), proxyUri.getPort());
 				final Proxy proxy = new Proxy(Proxy.Type.HTTP, sockAddress);
 				conn = (HttpURLConnection) url.openConnection(proxy);
@@ -104,5 +110,24 @@ public class SlackClient {
 		}
 
 	}
+
+
+	public class ProxyAuthenticator extends Authenticator {
+		String ProxyUserInfo;
+		String ProxyUserName;
+		String ProxyUserPassword;
+
+		public ProxyAuthenticator(String ProxyUserInfo) {
+			String[] parts = ProxyUserInfo.split(":");
+			ProxyUserName = parts[0];
+			ProxyUserPassword = parts[1];
+		}
+
+		public PasswordAuthentication getPasswordAuthentication(){
+			return new PasswordAuthentication(ProxyUserName, ProxyUserPassword.toCharArray());
+		}
+
+	}
+
 
 }
