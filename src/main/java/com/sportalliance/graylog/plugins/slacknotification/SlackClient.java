@@ -49,7 +49,7 @@ public class SlackClient {
 			if (!StringUtils.isEmpty(proxyURL)) {
 				final URI proxyUri = new URI(proxyURL);
 				if (!StringUtils.isEmpty(proxyUri.getUserInfo())) {
-					uthenticator.setDefault(new ProxyAuthenticator(proxyUri.getUserInfo()));
+					Authenticator.setDefault(new ProxyAuthenticator(proxyUri.getUserInfo()));
 				}
 				InetSocketAddress sockAddress = new InetSocketAddress(proxyUri.getHost(), proxyUri.getPort());
 				final Proxy proxy = new Proxy(Proxy.Type.HTTP, sockAddress);
