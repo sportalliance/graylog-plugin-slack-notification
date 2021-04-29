@@ -1,0 +1,19 @@
+version: 2
+updates:
+- package-ecosystem: maven
+  directory: "/"
+  schedule:
+    interval: daily
+    time: "04:00"
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: org.graylog2:graylog2-server
+    versions:
+    - 4.0.2
+    - 4.0.3
+    - 4.0.5
+  - dependency-name: org.graylog.plugins:graylog-plugin-web-parent
+    versions:
+    - 4.0.2
+    - 4.0.3
+    - 4.0.5
