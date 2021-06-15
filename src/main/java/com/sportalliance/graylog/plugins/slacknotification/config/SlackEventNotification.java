@@ -18,6 +18,9 @@ package com.sportalliance.graylog.plugins.slacknotification.config;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +29,9 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+
 import org.apache.commons.lang3.StringUtils;
+import org.graylog.events.event.EventDto;
 import org.graylog.events.notifications.EventNotification;
 import org.graylog.events.notifications.EventNotificationContext;
 import org.graylog.events.notifications.EventNotificationService;
@@ -41,6 +46,9 @@ import org.graylog2.plugin.MessageSummary;
 import org.graylog2.plugin.streams.Stream;
 import org.graylog2.plugin.system.NodeId;
 import org.graylog2.streams.StreamService;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.ISODateTimeFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -249,7 +257,26 @@ public class SlackEventNotification implements EventNotification {
 				EventDefinitionDto eventDefinitionDto = ctx.eventDefinition().get();
 				if(eventDefinitionDto.config() instanceof AggregationEventProcessorConfig) {
 					String query = ((AggregationEventProcessorConfig) eventDefinitionDto.config()).query();
-					streamUrl += "?q=" + query;
+					streamUrl += "?q=" + urlEncodeValue(query).get();
+
+					EventDto event = ctx.event();
+					DateTimeFormatter fmt = ISODateTimeFormat.dateTime();
+					DateTime startTime;
+					DateTime endTime;
+					if (event.timerangeStart().isPresent() && event.timerangeEnd().isPresent()) {
+						startTime = event.timerangeStart().get();
+						endTime = event.timerangeEnd().get();
+					}
+					else {
+						DateTime eventTimestamp = event.eventTimestamp();
+						startTime = eventTimestamp.minusSeconds(15);
+						endTime = eventTimestamp.plusSeconds(15);
+					}
+
+					String startTimeEncoded = encodeDateTime(startTime);
+					String endTimeEncoded = encodeDateTime(endTime);
+					streamUrl += "&rangetype=absolute&from=" + startTimeEncoded;
+					streamUrl += "&to=" + endTimeEncoded;
 				}
 			}
 		}
@@ -260,5 +287,20 @@ public class SlackEventNotification implements EventNotification {
 				.description(stream.getDescription())
 				.url(Optional.ofNullable(streamUrl).orElse(UNKNOWN_VALUE))
 				.build();
+	}
+
+	private Optional<String> urlEncodeValue(String value) {
+		try {
+			return Optional.of(URLEncoder.encode(value, StandardCharsets.UTF_8.toString()));
+		}
+		catch (UnsupportedEncodingException ex) {
+			return Optional.empty();
+		}
+	}
+
+	private String encodeDateTime(DateTime value) {
+			DateTimeFormatter fmt = ISODateTimeFormat.dateTime();
+			String formatted = value.toString(fmt);
+			return urlEncodeValue(formatted).orElse(formatted);
 	}
 }
