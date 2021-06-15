@@ -18,6 +18,9 @@ package com.sportalliance.graylog.plugins.slacknotification.config;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -249,7 +252,7 @@ public class SlackEventNotification implements EventNotification {
 				EventDefinitionDto eventDefinitionDto = ctx.eventDefinition().get();
 				if(eventDefinitionDto.config() instanceof AggregationEventProcessorConfig) {
 					String query = ((AggregationEventProcessorConfig) eventDefinitionDto.config()).query();
-					streamUrl += "?q=" + query;
+					streamUrl += "?q=" + urlEncodeValue(query).get();
 				}
 			}
 		}
@@ -260,5 +263,14 @@ public class SlackEventNotification implements EventNotification {
 				.description(stream.getDescription())
 				.url(Optional.ofNullable(streamUrl).orElse(UNKNOWN_VALUE))
 				.build();
+	}
+
+	private Optional<String> urlEncodeValue(String value) {
+		try {
+			return Optional.of(URLEncoder.encode(value, StandardCharsets.UTF_8.toString()));
+		}
+		catch (UnsupportedEncodingException ex) {
+			return Optional.empty();
+		}
 	}
 }
